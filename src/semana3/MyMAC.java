@@ -51,12 +51,12 @@ public class MyMAC {
             KeyStore keyStore = createKeyStore(args[1], "filipa");
             KeyStore.SecretKeyEntry skEntry = new KeyStore.SecretKeyEntry(sk);
             keyStore.setEntry("key", skEntry, pass);
-            //keyStore.store(new FileOutputStream(args[1]), "filipa".toCharArray());
-            System.out.println("Found Key 1: " + bkey);
-            String filekey = args[1];
-            FileOutputStream out = new FileOutputStream(filekey);
-            out.write(bkey);
-            out.close();
+            keyStore.store(new FileOutputStream(args[1]), "filipa".toCharArray());
+            System.out.println("Found Key 1: " + sk);
+            //String filekey = args[1];
+            //FileOutputStream out = new FileOutputStream(filekey);
+            //out.write(bkey);
+            //out.close();
         }
 
         if (args[0].contains("-enc")) {
@@ -65,7 +65,7 @@ public class MyMAC {
             KeyStore.Entry entry = keyStore.getEntry("key", pass);
             SecretKey keyFound = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
             byte[] ckey = keyFound.getEncoded();
-            System.out.println("Found Key: " + ckey);
+            System.out.println("Found Key: " + keyFound);
 
             Cipher e = Cipher.getInstance("RC4");
             Path path = Paths.get(args[2]);
@@ -76,17 +76,40 @@ public class MyMAC {
             out.write(dataout);
             out.close();
         }
+
+        if (args[0].contains("-dec")) {
+
+            //Path pathkey = Paths.get(args[1]);
+            //byte[] chave = Files.readAllBytes(pathkey);
+            //SecretKey sk1 = new SecretKeySpec(chave, "RC4");
+            
+            KeyStore keyStore = createKeyStore(args[1], "filipa");
+            KeyStore.Entry entry = keyStore.getEntry("key", pass);
+            SecretKey keyFound = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
+            byte[] ckey = keyFound.getEncoded();
+            System.out.println("Found Key: " + keyFound);
+            
+            Cipher e = Cipher.getInstance("RC4");
+            e.init(Cipher.DECRYPT_MODE, keyFound);
+
+            Path path = Paths.get(args[2]);
+            byte[] data = Files.readAllBytes(path);
+            dataout = e.doFinal(data);
+            FileOutputStream out1 = new FileOutputStream(args[3]);
+            out1.write(dataout);
+            out1.close();
+
+        }
+
     }
 
     private static KeyStore createKeyStore(String fileName, String pw) throws Exception {
         File file = new File(fileName);
 
-        final KeyStore keyStore = KeyStore.getInstance("JCEKS");
+        KeyStore keyStore = KeyStore.getInstance("JCEKS");
         if (file.exists()) {
-            // .keystore file already exists => load it
-            keyStore.load(new FileInputStream(file), pw.toCharArray());
+            keyStore.load(new FileInputStream(fileName), pw.toCharArray());
         } else {
-            // .keystore file not created yet => create it
             keyStore.load(null, null);
             keyStore.store(new FileOutputStream(fileName), pw.toCharArray());
         }
@@ -94,27 +117,4 @@ public class MyMAC {
         return keyStore;
     }
 
-}/*
-
-
-        
-        
-       
- if(args[0].contains("-dec")){
-            
- Path pathkey = Paths.get(args[1]);
- byte[] chave = Files.readAllBytes(pathkey); 
- SecretKey sk1 = new SecretKeySpec(chave, "RC4");
- Cipher e = Cipher.getInstance("RC4");
- e.init(Cipher.DECRYPT_MODE, sk1);
-            
- Path path = Paths.get(args[2]);
- byte[] data = Files.readAllBytes(path);
- dataout=e.doFinal(data);
- FileOutputStream out1 = new FileOutputStream(args[3]);
- out1.write(dataout);
- out1.close();
-            
-            
-            
- }*/
+}
