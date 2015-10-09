@@ -20,9 +20,11 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.Random;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
@@ -40,11 +42,12 @@ public class MyMAC {
         byte[] ddataout;
         char[] password = "tpratico".toCharArray();
 
+
         PasswordProtection pass = new PasswordProtection(password);
 
         if (args[0].contains("-keygen")) {
             KeyGenerator kg;
-            kg = KeyGenerator.getInstance("RC4");
+            kg = KeyGenerator.getInstance("AES");
             kg.init(128);
             SecretKey sk = kg.generateKey();
             byte[] bkey = sk.getEncoded();
@@ -53,10 +56,6 @@ public class MyMAC {
             keyStore.setEntry("key", skEntry, pass);
             keyStore.store(new FileOutputStream(args[1]), "filipa".toCharArray());
             System.out.println("Found Key 1: " + sk);
-            //String filekey = args[1];
-            //FileOutputStream out = new FileOutputStream(filekey);
-            //out.write(bkey);
-            //out.close();
         }
 
         if (args[0].contains("-enc")) {
@@ -66,11 +65,14 @@ public class MyMAC {
             SecretKey keyFound = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
             byte[] ckey = keyFound.getEncoded();
             System.out.println("Found Key: " + keyFound);
+            Path pathiv = Paths.get("ivSpec.txt");
+            byte[] iv = Files.readAllBytes(pathiv);
+            IvParameterSpec ivSpec=new IvParameterSpec(iv);
 
-            Cipher e = Cipher.getInstance("RC4");
+            Cipher e = Cipher.getInstance("AES/CBC/PKCS5Padding");
             Path path = Paths.get(args[2]);
             byte[] data = Files.readAllBytes(path);
-            e.init(Cipher.ENCRYPT_MODE, keyFound);
+            e.init(Cipher.ENCRYPT_MODE, keyFound, ivSpec);
             dataout = e.doFinal(data);
             FileOutputStream out = new FileOutputStream(args[3]);
             out.write(dataout);
@@ -79,18 +81,18 @@ public class MyMAC {
 
         if (args[0].contains("-dec")) {
 
-            //Path pathkey = Paths.get(args[1]);
-            //byte[] chave = Files.readAllBytes(pathkey);
-            //SecretKey sk1 = new SecretKeySpec(chave, "RC4");
-            
             KeyStore keyStore = createKeyStore(args[1], "filipa");
             KeyStore.Entry entry = keyStore.getEntry("key", pass);
             SecretKey keyFound = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
             byte[] ckey = keyFound.getEncoded();
             System.out.println("Found Key: " + keyFound);
+            Path pathiv = Paths.get("ivSpec.txt");
+            byte[] iv = Files.readAllBytes(pathiv);
+            IvParameterSpec ivSpec=new IvParameterSpec(iv);
             
-            Cipher e = Cipher.getInstance("RC4");
-            e.init(Cipher.DECRYPT_MODE, keyFound);
+            Cipher e = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            e.init(Cipher.DECRYPT_MODE, keyFound, ivSpec);
+            
 
             Path path = Paths.get(args[2]);
             byte[] data = Files.readAllBytes(path);
