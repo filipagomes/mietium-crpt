@@ -23,6 +23,7 @@ import java.security.cert.CertificateException;
 import java.util.Random;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -63,19 +64,20 @@ public class MyMAC {
             KeyStore keyStore = createKeyStore(args[1], "filipa");
             KeyStore.Entry entry = keyStore.getEntry("key", pass);
             SecretKey keyFound = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
-            byte[] ckey = keyFound.getEncoded();
             System.out.println("Found Key: " + keyFound);
+            Mac hmacMd5=Mac.getInstance("HMACMD5");
             Path pathiv = Paths.get("ivSpec.txt");
             byte[] iv = Files.readAllBytes(pathiv);
             IvParameterSpec ivSpec=new IvParameterSpec(iv);
-
+            hmacMd5.init(keyFound);
             Cipher e = Cipher.getInstance("AES/CBC/PKCS5Padding");
             Path path = Paths.get(args[2]);
             byte[] data = Files.readAllBytes(path);
             e.init(Cipher.ENCRYPT_MODE, keyFound, ivSpec);
             dataout = e.doFinal(data);
+            ddataout=hmacMd5.doFinal(dataout);
             FileOutputStream out = new FileOutputStream(args[3]);
-            out.write(dataout);
+            out.write(ddataout);
             out.close();
         }
 
@@ -84,21 +86,24 @@ public class MyMAC {
             KeyStore keyStore = createKeyStore(args[1], "filipa");
             KeyStore.Entry entry = keyStore.getEntry("key", pass);
             SecretKey keyFound = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
-            byte[] ckey = keyFound.getEncoded();
+            Mac hmacMd5=Mac.getInstance("HMACMD5");
+            hmacMd5.init(keyFound);
             System.out.println("Found Key: " + keyFound);
             Path pathiv = Paths.get("ivSpec.txt");
             byte[] iv = Files.readAllBytes(pathiv);
             IvParameterSpec ivSpec=new IvParameterSpec(iv);
             
+            
+            
             Cipher e = Cipher.getInstance("AES/CBC/PKCS5Padding");
             e.init(Cipher.DECRYPT_MODE, keyFound, ivSpec);
-            
-
             Path path = Paths.get(args[2]);
             byte[] data = Files.readAllBytes(path);
-            dataout = e.doFinal(data);
+            dataout=hmacMd5.doFinal(data);
+            //int len = getMacLength();
+            ddataout = e.doFinal(dataout);
             FileOutputStream out1 = new FileOutputStream(args[3]);
-            out1.write(dataout);
+            out1.write(ddataout);
             out1.close();
 
         }
@@ -118,5 +123,6 @@ public class MyMAC {
 
         return keyStore;
     }
+
 
 }
