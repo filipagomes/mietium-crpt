@@ -48,35 +48,44 @@ public class MyMAC {
         PasswordProtection pass = new PasswordProtection(password);
 
         if (args[0].contains("-keygen")) {
+			//gera chave
             KeyGenerator kg;
             kg = KeyGenerator.getInstance("AES");
             kg.init(128);
             SecretKey sk = kg.generateKey();
             byte[] bkey = sk.getEncoded();
+			//guarda na KeyStore
             KeyStore keyStore = createKeyStore(args[1], "filipa");
             KeyStore.SecretKeyEntry skEntry = new KeyStore.SecretKeyEntry(sk);
             keyStore.setEntry("key", skEntry, pass);
             keyStore.store(new FileOutputStream(args[1]), "filipa".toCharArray());
+			//apenas para teste
             System.out.println("Found Key 1: " + sk);
         }
 
         if (args[0].contains("-enc")) {
 
-            KeyStore keyStore = createKeyStore(args[1], "filipa");
+            //vai buscar chave a keystore
+			KeyStore keyStore = createKeyStore(args[1], "filipa");
             KeyStore.Entry entry = keyStore.getEntry("key", pass);
             SecretKey keyFound = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
+			//apenas para teste
             System.out.println("Found Key: " + keyFound);
+			//inicia mac
             Mac hmacMd5=Mac.getInstance("HMACMD5");
+			hmacMd5.init(keyFound);
+			//vai buscar IV e ficheiro
             Path pathiv = Paths.get("ivSpec.txt");
             byte[] iv = Files.readAllBytes(pathiv);
-            IvParameterSpec ivSpec=new IvParameterSpec(iv);
-            hmacMd5.init(keyFound);
-            Cipher e = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            Path path = Paths.get(args[2]);
+			Path path = Paths.get(args[2]);
             byte[] data = Files.readAllBytes(path);
+            IvParameterSpec ivSpec=new IvParameterSpec(iv);
+            //inicia cifra
+            Cipher e = Cipher.getInstance("AES/CBC/PKCS5Padding");
             e.init(Cipher.ENCRYPT_MODE, keyFound, ivSpec);
             dataout = e.doFinal(data);
             ddataout=hmacMd5.doFinal(dataout);
+			//junta data e mac
             byte[] datafinal= new byte[dataout.length + hmacMd5.getMacLength()];
             System.arraycopy(dataout, 0, datafinal, 0, dataout.length);
             System.arraycopy(ddataout, 0, datafinal, dataout.length, ddataout.length);
@@ -106,19 +115,20 @@ public class MyMAC {
             int len = hmacMd5.getMacLength();
             System.out.println(data.length);
             System.out.println(len);
-            datamac = Arrays.copyOfRange(data, (data.length-len), data.length);
-            ddataout = Arrays.copyOfRange(data, 0, data.length-len);
+            ddataout = Arrays.copyOfRange(data, 0, 32);
+			System.out.println(data.length);
+			datamac = Arrays.copyOfRange(data, 32,48);
             dataMacIn=hmacMd5.doFinal(ddataout);
             if(datamac==dataMacIn){
-            byte[] datafinal = e.doFinal(ddataout);
-            FileOutputStream out1 = new FileOutputStream(args[3]);
-            out1.write(datafinal);
-            out1.close();}
+				byte[] datafinal = e.doFinal(ddataout);
+				FileOutputStream out1 = new FileOutputStream(args[3]);
+				out1.write(datafinal);
+				out1.close();}
             else{
                 byte[] datafinal = e.doFinal(ddataout);
-            FileOutputStream out1 = new FileOutputStream(args[3]);
-            out1.write(datafinal);
-            out1.close();
+				FileOutputStream out1 = new FileOutputStream(args[3]);
+				out1.write(datafinal);
+				out1.close();
                 System.out.println("nadaaa");}
 
         }
