@@ -20,6 +20,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.Arrays;
 import java.util.Random;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
@@ -40,7 +41,7 @@ public class MyMAC {
     public static void main(String[] args) throws Exception {
 
         byte[] dataout;
-        byte[] ddataout;
+        byte[] ddataout = null;
         char[] password = "tpratico".toCharArray();
 
 
@@ -76,13 +77,18 @@ public class MyMAC {
             e.init(Cipher.ENCRYPT_MODE, keyFound, ivSpec);
             dataout = e.doFinal(data);
             ddataout=hmacMd5.doFinal(dataout);
+            byte[] datafinal= new byte[dataout.length + hmacMd5.getMacLength()];
+            System.arraycopy(dataout, 0, datafinal, 0, dataout.length);
+            System.arraycopy(ddataout, 0, datafinal, dataout.length, ddataout.length);
+            System.out.println(hmacMd5.getMacLength());
             FileOutputStream out = new FileOutputStream(args[3]);
-            out.write(ddataout);
+            out.write(datafinal);
             out.close();
         }
 
         if (args[0].contains("-dec")) {
-
+            byte[] datamac = null;
+            byte[] dataMacIn;
             KeyStore keyStore = createKeyStore(args[1], "filipa");
             KeyStore.Entry entry = keyStore.getEntry("key", pass);
             SecretKey keyFound = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
@@ -92,19 +98,28 @@ public class MyMAC {
             Path pathiv = Paths.get("ivSpec.txt");
             byte[] iv = Files.readAllBytes(pathiv);
             IvParameterSpec ivSpec=new IvParameterSpec(iv);
-            
-            
-            
             Cipher e = Cipher.getInstance("AES/CBC/PKCS5Padding");
             e.init(Cipher.DECRYPT_MODE, keyFound, ivSpec);
             Path path = Paths.get(args[2]);
             byte[] data = Files.readAllBytes(path);
             dataout=hmacMd5.doFinal(data);
-            //int len = getMacLength();
-            ddataout = e.doFinal(dataout);
+            int len = hmacMd5.getMacLength();
+            System.out.println(data.length);
+            System.out.println(len);
+            datamac = Arrays.copyOfRange(data, (data.length-len), data.length);
+            ddataout = Arrays.copyOfRange(data, 0, data.length-len);
+            dataMacIn=hmacMd5.doFinal(ddataout);
+            if(datamac==dataMacIn){
+            byte[] datafinal = e.doFinal(ddataout);
             FileOutputStream out1 = new FileOutputStream(args[3]);
-            out1.write(ddataout);
+            out1.write(datafinal);
+            out1.close();}
+            else{
+                byte[] datafinal = e.doFinal(ddataout);
+            FileOutputStream out1 = new FileOutputStream(args[3]);
+            out1.write(datafinal);
             out1.close();
+                System.out.println("nadaaa");}
 
         }
 
