@@ -1,67 +1,53 @@
 import java.net.*;
 import java.io.*;
-
-import java.nio.file.Paths;
-import java.nio.file.Path;
-import javax.crypto.SecretKey;
-import javax.crypto.Cipher;
+import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
-import java.nio.file.Files;
-import java.io.InputStream;
-import java.io.ByteArrayInputStream;
-import java.security.InvalidKeyException;
-import javax.crypto.KeyGenerator;
-import java.security.KeyStore;
-import java.security.KeyStore.PasswordProtection;
-import java.security.KeyStoreException;
+import javax.crypto.spec.IvParameterSpec;
+import java.security.MessageDigest;
+import java.util.Arrays;
 
 public class Cliente {
+	static final String CIPHER_MODE = "AES/CTR/NoPadding";
+	static final String UNSAFE_PASSWORD = "PASSWORD!!";
 
     static public void main(String []args) {
-		char[] password = "tpratico".toCharArray();
-		PasswordProtection pass = new PasswordProtection(password);
-		
 	try {
 	    Socket s = new Socket("localhost",4567);
 
 	    ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
 	    ObjectInputStream ois = new ObjectInputStream(s.getInputStream());
+		
+		MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+		byte[] rawbits = sha256.digest(UNSAFE_PASSWORD.getBytes("UTF-8"));
+		
+		Mac m = Mac.getInstance("HmacSHA1");
+		SecretKey mackey = new SecretKeySpec(rawbits,16,16,"HmacSHA1");
+
+		Cipher c = Cipher.getInstance(CIPHER_MODE);
+		SecretKey key = new SecretKeySpec(rawbits,0,16,"AES");
+		c.init(Cipher.ENCRYPT_MODE, key);
+		byte iv[] = c.getIV();
+		m.init(mackey);
+		
+		oos.writeObject(iv);
+		
 	    String test;
-		
-		KeyStore keyStore = createKeyStore(args[0], "filipa");
-        KeyStore.Entry entry = keyStore.getEntry("key", pass);
-        SecretKey keyFound = ((KeyStore.SecretKeyEntry) entry).getSecretKey();
-        System.out.println("Found Key: " + keyFound);
-        	
-		
-	    BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
+		BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
+		byte ciphertext[];
+		byte[] mac=null;
 		
 	    while((test=stdIn.readLine())!=null) {
-			byte[] dataIn = null;
-			Cipher e = Cipher.getInstance("RC4");
-			e.init(Cipher.ENCRYPT_MODE,keyFound);
-			dataIn=test.getBytes();
-			byte[] dataout = null;
-			dataout = e.doFinal(dataIn);
-			oos.writeObject(dataout);
+			ciphertext = c.update(test.getBytes("UTF-8"));
+			if(ciphertext != null){
+				mac=m.doFinal(ciphertext);
+				oos.writeObject(ciphertext);
+				oos.writeObject(mac);
+			}
 	    }
+		oos.writeObject(c.doFinal());
 	}
 	catch (Exception e){
 	    e.printStackTrace();
 	}
-    }
-	
-	private static KeyStore createKeyStore(String fileName, String pw) throws Exception {
-        File file = new File(fileName);
-
-        KeyStore keyStore = KeyStore.getInstance("JCEKS");
-        if (file.exists()) {
-            keyStore.load(new FileInputStream(fileName), pw.toCharArray());
-        } else {
-            keyStore.load(null, null);
-            keyStore.store(new FileOutputStream(fileName), pw.toCharArray());
-        }
-
-        return keyStore;
     }
 }
